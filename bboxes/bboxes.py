@@ -102,7 +102,6 @@ class Bbox(object):
   
         return out
     
-    
     def draw(self, img):
         """Draw bbox on image, expect an int image"""
         img = np.copy(img)
@@ -131,7 +130,7 @@ def get_position(val, l):
 class BboxList(list):
 
     def __init__(self):
-        super(BboxList, self).__init__()
+        super(list, self).__init__()
         self.th = None
         self.all_classes = None
 
@@ -142,7 +141,7 @@ class BboxList(list):
         elif (classes is not None) and (class_names is not None):
             raise ValueError('You should provide only classes or class_names param.')
         if class_names is not None:
-            classes = [class_names[i] for i in ids]
+            classes = [class_names[int(i)] for i in ids]
         bblist = _cls()
         bblist.th = th
         bblist.all_classes = class_names
@@ -150,7 +149,7 @@ class BboxList(list):
         for _id, score, bbox, _cls in zip(ids, scores, bboxes, classes):
             _id = int(_id)
             if score > th: 
-                out_bboxes.append(Bbox(bbox, _id, score, _cls, parent=bblist))
+                out_bboxes.append(Bbox(bbox,_id, score, _cls, parent=bblist))
         # Sort the boxes only once
         out_bboxes = sorted(out_bboxes, key=(lambda x: x.score), reverse=True)
         bblist.extend(out_bboxes)
@@ -186,7 +185,7 @@ class BboxList(list):
         for bbox in self:
             ids.append(bbox.class_id)
             scores.append(bbox.score)
-            bboxes.append(bbox.xyxy())
+            bboxes.append(bbox.xyxy)
         return np.array(ids), np.array(scores), np.array(bboxes)
 
     def draw(self, img):
