@@ -128,7 +128,7 @@ def get_position(val, l):
 
 
 class BboxList(list):
-
+    
     def __init__(self):
         super(list, self).__init__()
         self.th = None
@@ -136,6 +136,11 @@ class BboxList(list):
 
     @classmethod
     def from_arrays(_cls, ids, scores, bboxes, classes=None, class_names=None, th=0.0):
+        """Creates an BboxList from a list of arrays.
+        params:
+            classes: array with the class of each instance
+            class_names: ordered names of the classes
+        """
         if (classes is None) and (class_names is None):
             raise ValueError('You should provide classes or class_names param.')
         elif (classes is not None) and (class_names is not None):
