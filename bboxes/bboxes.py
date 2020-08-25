@@ -32,19 +32,34 @@ def xyxy2center_width_height(data):
 
 class Bbox(object):
 
-    def __init__(self, coords, class_id, score, class_name, parent=None):
-        self.x1 = coords[0] # left top
-        self.y1 = coords[1] # left top
-        self.x2 = coords[2] # right bottom
-        self.y2 = coords[3] # right bottom
-        self.coords = coords
-        self.class_id = int(class_id)
+    def __init__(self, coords, _id, class_name,
+                  width, height, score=None):
+        self.bbox = coords
+        self.class_id = int(_id)
         self.score = score
         self.parent = parent
         self.class_name = class_name
+        self.img_width = width
+        self.img_height = height
         
     def __repr__(self):
         return 'Bbox({:.2f}, {:.2f}, {:.2f}, {:.2f}, class_id={}, score={:.2f}, class_name=\'{}\')'.format(self.x1, self.y1, self.x2, self.y2, self.class_id, self.score, self.class_name)
+
+    @property
+    def x1(self):
+        return self.bbox[0]
+
+    @property
+    def x2(self):
+        return self.bbox[2]
+
+    @property
+    def y1(self):
+        return self.bbox[1]
+
+    @property
+    def y2(self):
+        return self.bbox[3]
 
     @property
     def xyxy(self):
@@ -58,7 +73,35 @@ class Bbox(object):
     def center_width_height(self):
         return xyxy2center_width_height(self.xyxy)
 
-    def cropped_image(self, img, border=0.0):
+    @property
+    def xy_width_height(self):
+        return np.array([self.x1, self.y1, self.x2 - self.x1, self.y2 - self.y1])
+    
+    @property
+    def height(self):
+        return self.y2 - self.y1
+    
+    @property
+    def width(self):
+        return self.x2 - self.x1
+    
+    def copy(self):
+        return deepcopy(self)
+    
+    def resize(self, target_size):
+
+        in_height, in_width = self.img_height, self.img_width
+        t_height, t_width = target_size
+
+        width_ratio = t_width / in_width
+        height_ratio = t_height / in_height 
+
+        rep = np.array([width_ratio, height_ratio, width_ratio, height_ratio])
+        rscaled_bbox = self.bbox * rep
+        
+        return Bbox(rscaled_bbox, self.class_id, self.score, self.class_name, t_width, t_height)
+
+    def crop_image(self, img, border=0.0):
         """Return the original image cropped on the bounding box limits
         border: percentage of the bounding box width and height to enlager the bbox
         """
@@ -104,7 +147,14 @@ class Bbox(object):
     
     def draw(self, img):
         """Draw bbox on image, expect an int image"""
-        img = np.copy(img)
+        if img.dtype == np.float:
+            img = (img * 255).astype(np.uint8)
+        elif img.dtype == np.uint8:
+            if copy:
+                img = np.array(img, dtype=np.uint8)
+        else:
+            raise ValueError('Image of type {} should be a float or uint8 array.'.format(img.dtype))  
+
         height, width = img.shape[:2]
         if (self.parent is not None) and (self.parent.all_classes is not None):
             color = plt.get_cmap('hsv')(self.class_id / len(self.parent.all_classes))
@@ -113,12 +163,32 @@ class Bbox(object):
         color = [x * 255 for x in color]
         thickness = 1 + int(img.shape[1]/300)
         cv2.rectangle(img, (int(self.x1), int(self.y1)), (int(self.x2), int(self.y2)), color, thickness)
-        text = '{} {:d}%'.format(self.class_name, int(self.score * 100))
+        if self.score is None:
+            text = '{}'.format(self.class_name)
+        else:
+            text = '{} {:d}%'.format(self.class_name, int(self.score * 100))
         font_scale = 0.5/600 * width
         thickness = int(2/600 * width)
         vert = 10/1080 * height
         cv2.putText(img, text, (int(self.x1), int(self.y1 - vert)), cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)
         return img
+    
+    def iou(self, other):
+
+        A1 = (self.x2 - self.x1) * (self.y2 - self.y1) 
+        A2 = (other.x2 - other.x1) * (other.y2 - other.y1) 
+        inter = ( max(self.x1, other.x1) - min(self.x2, other.x2) ) * \
+            ( max(self.y1, other.y1) - min(self.y2, other.y2) )
+
+        IOU = inter / (A1 + A2 - inter)
+
+        return IOU
+
+    def iouc(self, other):
+        if self.class_name != other.class_name:
+            return -1
+        else:
+            return self.iou(other)
 
 
 def get_position(val, l):
@@ -135,19 +205,19 @@ class BboxList(list):
         self.all_classes = None
 
     @classmethod
-    def from_arrays(_cls, ids, scores, bboxes, classes=None, class_names=None, th=0.0):
+    def from_arrays(cls, ids, scores, bboxes, width, height, class_names=None, th=0.0):
         """Creates an BboxList from a list of arrays.
         params:
             classes: array with the class of each instance
             class_names: ordered names of the classes
         """
-        if (classes is None) and (class_names is None):
-            raise ValueError('You should provide classes or class_names param.')
-        elif (classes is not None) and (class_names is not None):
-            raise ValueError('You should provide only classes or class_names param.')
-        if class_names is not None:
-            classes = [class_names[int(i)] for i in ids]
-        bblist = _cls()
+        # if (classes is None) and (class_names is None):
+        #     raise ValueError('You should provide classes or class_names param.')
+        # elif (classes is not None) and (class_names is not None):
+        #     raise ValueError('You should provide only classes or class_names param.')
+        # if class_names is not None:
+        classes = [class_names[int(i)] for i in ids]
+        bblist = cls()
         bblist.th = th
         bblist.all_classes = class_names
         out_bboxes = []
@@ -168,11 +238,11 @@ class BboxList(list):
             id_cls_map[bb.class_id] = bb.class_name
         return [id_cls_map[e] for e in self.get_uids()]
 
-    def append(self, bb):
-        """Overload append to ensure that the boxes will always be ordered"""
-        super(BboxList, self).append(bb)
-        if len(self) > 1:
-            self.sort(key=lambda x: x.score, reverse=True)
+    # def append(self, bb):
+    #     """Overload append to ensure that the boxes will always be ordered"""
+    #     super(BboxList, self).append(bb)
+    #     if len(self) > 1:
+    #         self.sort(key=lambda x: x.score, reverse=True)
 
     def get_scores(self):
         """Return a list with the scores in the boxes order"""
@@ -183,7 +253,6 @@ class BboxList(list):
         return sorted(list(set([bb.class_id for bb in self])))
 
     def to_arrays(self):
-        """Convert to arrays in gluoncv output convention"""
         ids = []
         scores = []
         bboxes = []
@@ -192,13 +261,43 @@ class BboxList(list):
             scores.append(bbox.score)
             bboxes.append(bbox.xyxy)
         return np.array(ids), np.array(scores), np.array(bboxes)
-
+    
     def draw(self, img):
         """Draw all bounding boxes in inverse order, to focus on higher score boxes."""
+        img = np.copy(img)
         for bbox in self[::-1]:
             img = bbox.draw(img)
 
         return img
+    
+    def crop(self, arr):
+        out = []
+        for bbox in self:
+            out.append(bbox.crop(arr))
+        return out
+    
+    def sort(self, reverse=True):
+        temp = sorted(self, key=(lambda x: x.score), reverse=reverse)
+        out = BboxList()
+        for t in temp:
+            out.append(t)
+        return out
+    
+    def ioum(self):
+        """Returns a matrix of iou values among bboxes"""
+        out = np.zeros((len(self), len(self)), dtype=np.float)
+        for i, abb in enumerate(self):
+            for j, bbb in enumerate(self):
+                out[i, j] = abb.iou(bbb)
+        
+        return out
+    
+    def resize(self, target_size, copy=False):
+        out = BboxList()
+        for bbox in self:
+            out.append(bbox.resize(target_size))
+
+        return out
 
     def filter(self, classes):
         out = BboxList()
