@@ -1,44 +1,57 @@
 import os
 import sys
-path = os.path.dirname(os.path.dirname(os.path.abspath(os.path.realpath(__file__))))
-if path not in sys.path:
-    sys.path.insert(0, path)
+# path = os.path.dirname(os.path.dirname(os.path.abspath(os.path.realpath(__file__))))
+# if path not in sys.path:
+#     sys.path.insert(0, path)
 import unittest
-
 import numpy as np
-
 from bboxes import BboxList, Bbox
 
 
 class TestBbox(unittest.TestCase):
 
-    def init_bbox(self):
+    def setUp(self):
+        self.bbs, self.bbns = self.init_bboxes()
+    
+    def init_bboxes(self):
         id_ = 1
         score = 0.7
-        bb = [1,1,2,2]
-        class_name = 'a'
-        bb = Bbox(bb, id_, score, class_name)
-        return bb
-    def test_init(self):
-        _ = self.init_bbox()
-
-
+        coords = [10,20,200,300]
+        width, height = 400, 400
+        class_name = 'cls1'
+        bbs = Bbox(coords, id_, class_name, width, height, score=score)
+        bbns = Bbox(coords, id_, class_name, width, height)
+        
+        return bbs, bbns
+    
+    def test_resize(self):
+        
+        t_width = 200
+        t_height = 200
+        out = self.bbs.resize((t_width, t_height))
+        
+        self.assertEqual(out.img_height, t_height)
+        self.assertEqual(out.img_width, t_width)
+        self.assertEqual(out.x1, self.bbs.x1//2)
+        self.assertEqual(out.x2, self.bbs.x2//2)
+        self.assertEqual(out.y1, self.bbs.y1//2)
+        self.assertEqual(out.y2, self.bbs.y2//2)
+        
     def test_draw(self):
-        bb = self.init_bbox()
-        img = np.zeros((10,10))
-        dimg = bb.draw(img)
+            
+        img = np.zeros((400, 400))
+        dimg = self.bbs.draw(img)
+        dimg = self.bbns.draw(img)
 
     def test_crop(self):
 
-        bb = self.init_bbox()
-        img = np.zeros((10,10))
-        cimg = bb.cropped_image(img)
+        img = np.zeros((400, 400))
+        cimg = self.bbs.crop_image(img)
 
     def test_mask(self):
 
-        bb = self.init_bbox()
-        img = np.zeros((10,10))
-        mimg = bb.mask_image(img)
+        img = np.zeros((400,400))
+        mimg = self.bbs.mask_image(img)
 
 
 class TestBBoxList(unittest.TestCase):
@@ -46,32 +59,19 @@ class TestBBoxList(unittest.TestCase):
     def test_loader(self):
         ids = np.array([1, 2, 3])
         scores = np.array([0.5, 0.7, 0.6])
-        bboxes = np.array([[1,1,1,1], [1,1,1,1], [1,1,1,1], [1,1,1,1]])
+        bboxes = np.array([[10,10,200,200], [50,60,150,200], [30,25,350,300], [20,30,100,120]])
         class_names = list('abcd')
-        bblist = BboxList.from_arrays(ids, scores, bboxes, class_names)
-
-    def test_append(self):
-        bblist = BboxList()
-
-        ids = np.array([1, 2, 3, 2])
-        scores = np.array([0.5, 0.7, 0.6, 0.65])
-        bboxes = np.array([[1,1,1,1], [1,1,1,1], [1,1,1,1], [1,1,1,1]])
-        classes = list('abcb')
-        for i, s, b, c in zip(ids, scores, bboxes, classes):
-            bb = Bbox(b, i, s, c)
-            bblist.append(bb)
-
-        self.assertEqual(len(bblist), 4)
-        self.assertEqual(bblist.class_names, list('abc'))
-        self.assertEqual(bblist.get_scores(), [0.7, 0.65, 0.6, 0.5])
+        width, height = 400, 400
+        bblist = BboxList.from_arrays(ids, scores, bboxes, width, height, class_names)
 
     def test_draw(self):
 
         ids = np.array([1, 2, 3, 2])
         scores = np.array([0.5, 0.7, 0.6, 0.65])
         bboxes = np.array([[1,1,1,1], [1,1,1,1], [1,1,1,1], [1,1,1,1], [1,1,1,1]])
-        classes = list('abcb')
-        bblist = BboxList.from_arrays(ids, scores, bboxes, classes=classes)
+        class_names = list('abcb')
+        width, height = 400, 400
+        bblist = BboxList.from_arrays(ids, scores, bboxes, width, height, class_names)
 
         img = np.zeros((100, 100, 3))
         dimg = bblist.draw(img)

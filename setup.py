@@ -3,6 +3,7 @@ from setuptools import setup
 
 setup(
     name='bboxes',
+    author='Cézar Bieniek Lemos',
     author_email="cezarcbl@pm.me",
     license="MIT",
     version='0.0.1',

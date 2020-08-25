@@ -2,6 +2,7 @@ from __future__ import division, print_function, absolute_import
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+from copy import copy, deepcopy
 
 
 def center_width_height2xyxy(data):
@@ -37,7 +38,6 @@ class Bbox(object):
         self.bbox = coords
         self.class_id = int(_id)
         self.score = score
-        self.parent = parent
         self.class_name = class_name
         self.img_width = width
         self.img_height = height
@@ -99,7 +99,7 @@ class Bbox(object):
         rep = np.array([width_ratio, height_ratio, width_ratio, height_ratio])
         rscaled_bbox = self.bbox * rep
         
-        return Bbox(rscaled_bbox, self.class_id, self.score, self.class_name, t_width, t_height)
+        return Bbox(rscaled_bbox, self.class_id, self.class_name, t_width, t_height, score=self.score)
 
     def crop_image(self, img, border=0.0):
         """Return the original image cropped on the bounding box limits
@@ -156,10 +156,11 @@ class Bbox(object):
             raise ValueError('Image of type {} should be a float or uint8 array.'.format(img.dtype))  
 
         height, width = img.shape[:2]
-        if (self.parent is not None) and (self.parent.all_classes is not None):
-            color = plt.get_cmap('hsv')(self.class_id / len(self.parent.all_classes))
-        else:
-            color = plt.get_cmap('hsv')(self.class_id / 80) # Number of classes on COCO
+        # if (self.parent is not None) and (self.parent.all_classes is not None):
+        #     color = plt.get_cmap('hsv')(self.class_id / len(self.parent.all_classes))
+        # else:
+        #     color = plt.get_cmap('hsv')(self.class_id / 80) # Number of classes on COCO
+        color = plt.get_cmap('hsv')(self.class_id / 80) # Number of classes on COCO
         color = [x * 255 for x in color]
         thickness = 1 + int(img.shape[1]/300)
         cv2.rectangle(img, (int(self.x1), int(self.y1)), (int(self.x2), int(self.y2)), color, thickness)
@@ -224,7 +225,7 @@ class BboxList(list):
         for _id, score, bbox, _cls in zip(ids, scores, bboxes, classes):
             _id = int(_id)
             if score > th: 
-                out_bboxes.append(Bbox(bbox,_id, score, _cls, parent=bblist))
+                out_bboxes.append(Bbox(bbox, _id, _cls, width, height, score=score))
         # Sort the boxes only once
         out_bboxes = sorted(out_bboxes, key=(lambda x: x.score), reverse=True)
         bblist.extend(out_bboxes)
