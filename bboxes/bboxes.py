@@ -31,7 +31,7 @@ def xyxy2center_width_height(data):
     return np.array(out)
 
 
-class Bbox(object):
+class Bbox:
 
     def __init__(self, coords, _id, class_name,
                   width, height, score=None):
@@ -200,8 +200,8 @@ def get_position(val, l):
 
 class BboxList(list):
     
-    def __init__(self):
-        super(list, self).__init__()
+    def __init__(self, *args, **kargs):
+        super().__init__(*args, *kargs)
         self.th = None
         self.all_classes = None
 
