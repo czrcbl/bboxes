@@ -32,10 +32,20 @@ def xyxy2center_width_height(data):
 
 
 class Bbox:
+    """Represents a Bounding Box
 
+        Args:
+            coords (list): [Upper left x, Upper left y, Botton right x, Botton right y]
+            _id (int): Class id Number
+            class_name (str): Name of the object class.
+            width (int): Target image width
+            height (int): Target image height
+            score (float, optional): Bbox detection score (for the case in which the bbox is the output of a model). Defaults to None.
+    """
     def __init__(self, coords, _id, class_name,
                   width, height, score=None):
-        self.bbox = coords
+
+        self.bbox = [float(a) for a in coords]
         self.class_id = int(_id)
         self.score = score
         self.class_name = class_name
@@ -199,7 +209,12 @@ def get_position(val, l):
 
 
 class BboxList(list):
-    
+    """Container for bounding Boxes, inherits from list.
+
+        Args:
+            *args: list __init__ args
+            **kargs: list __init__ **kargs
+    """
     def __init__(self, *args, **kargs):
         super().__init__(*args, *kargs)
         self.th = None
@@ -207,10 +222,23 @@ class BboxList(list):
 
     @classmethod
     def from_arrays(cls, ids, scores, bboxes, width, height, class_names=None, th=0.0):
-        """Creates an BboxList from a list of arrays.
-        params:
-            classes: array with the class of each instance
-            class_names: ordered names of the classes
+        """Creates a BboxList from a list of arrays.
+
+        Args:
+            ids (Union(list, np.array)): Sequence of class ids
+            scores (Union(list, np.array)): Sequence of detection scores
+            bboxes (Union(list, np.array)): Sequence of bounding boxes coordinates
+            width (int): Target image width
+            height (int): Target image height
+            class_names (list, optional): List of class names, where the index of the name correspond to the respective class id. Defaults to None.
+            th (float, optional): Detection threshold with which to filter the bounding boxes. Defaults to 0.0.
+
+        Raises:
+            ValueError: [description]
+            ValueError: [description]
+
+        Returns:
+            [type]: [description]
         """
         # if (classes is None) and (class_names is None):
         #     raise ValueError('You should provide classes or class_names param.')
